@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">Nova Home</string>
+    <string name="drawer_search_hint">Search apps…</string>
+    <string name="settings_title">Home settings</string>
+    <string name="set_as_default">Set as default home app</string>
+    <string name="remove_from_home">Remove from home</string>
+    <string name="uninstall">Uninstall</string>
+    <string name="app_info">App info</string>
+    <string name="edit_folder">Rename folder</string>
+    <string name="folder_name">Folder name</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="onboarding_title">Welcome to Nova Home</string>
+    <string name="onboarding_description">A clean, personalized experience for your Android device.</string>
+    <string name="onboarding_button">Get Started</string>
+    <string name="search_web">Search the web</string>
+    <string name="no_apps_found">No apps found</string>
+    <string name="recently_used">Recently used</string>
+    <string name="all_apps">All apps</string>
+    <string name="grid_size">Grid size</string>
+    <string name="icon_size">Icon size</string>
+    <string name="themed_icons">Themed icons (Beta)</string>
+    <string name="reset_layout">Reset layout</string>
+    <string name="reset_layout_confirm">Are you sure you want to reset your home screen layout?</string>
+</resources>

@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Required for setting device wallpaper from the launcher settings or wallpaper picker -->
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
+    
+    <!-- Required for hosting home screen widgets via AppWidgetHost -->
+    <uses-permission android:name="android.permission.BIND_APPWIDGET" tools:ignore="ProtectedPermissions" />
+    
+    <!-- Optional: Used locally to fetch weather data for the At a Glance widget -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    
+    <!-- Optional: Contextual permission for searching device contacts, requested only at runtime when enabled -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
+    <application
+        android:name=".LauncherApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.NovaHome"
+        android:usesCleartextTraffic="true"
+        tools:targetApi="31">
+
+        <!-- First run wizard / onboarding activity -->
+        <activity
+            android:name=".ui.FirstRunActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.NovaHome">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Main Home Screen / Launcher Activity -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:clearTaskOnLaunch="true"
+            android:stateNotNeeded="true"
+            android:theme="@style/Theme.NovaHome">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Settings and Customization Activity -->
+        <activity
+            android:name=".ui.SettingsActivity"
+            android:exported="false"
+            android:label="@string/settings_title"
+            android:theme="@style/Theme.NovaHome" />
+
+        <!-- Reliability and Background Optimization Settings for OEM devices (Honor/MIUI) -->
+        <activity
+            android:name=".ui.ReliabilityActivity"
+            android:exported="false"
+            android:label="Reliability Settings"
+            android:theme="@style/Theme.NovaHome" />
+
+        <!-- Notification Listener Service for displaying unread badge counts on app icons -->
+        <service
+            android:name=".LauncherNotificationListenerService"
+            android:label="Nova Home Notification Listener"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+    </application>
+
+    <!-- Package visibility queries required for Android 11+ package filtering -->
+    <queries>
+        <!-- Query all launchable apps to populate the app drawer -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        
+        <!-- Query third-party icon packs (ADW and GO launcher themes) -->
+        <intent>
+            <action android:name="org.adw.launcher.THEMES" />
+        </intent>
+        <intent>
+            <action android:name="com.gau.go.launcherex.theme" />
+        </intent>
+    </queries>
+
+</manifest>
