@@ -28,15 +28,15 @@ android {
   // Do not remove or modify these signingConfigs. They are necessary for building, installing,
   // and updating Android apps in AI Studio.
   signingConfigs {
-    val releaseKeystorePath = System.getenv("RELEASE_STORE_FILE") ?: (project.findProperty("RELEASE_STORE_FILE") as? String)
-    val releaseKeystoreFile = if (releaseKeystorePath != null) file(releaseKeystorePath) else null
+    val releaseKeystorePath = (System.getenv("RELEASE_STORE_FILE") ?: (project.findProperty("RELEASE_STORE_FILE") as? String))?.takeIf { it.isNotBlank() }
+    val releaseKeystoreFile = releaseKeystorePath?.let { file(it) }?.takeIf { it.exists() }
     
     create("release") {
-      if (releaseKeystoreFile != null && releaseKeystoreFile.exists()) {
+      if (releaseKeystoreFile != null) {
         storeFile = releaseKeystoreFile
-        storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: (project.findProperty("RELEASE_STORE_PASSWORD") as? String)
-        keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: (project.findProperty("RELEASE_KEY_ALIAS") as? String)
-        keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: (project.findProperty("RELEASE_KEY_PASSWORD") as? String)
+        storePassword = (System.getenv("RELEASE_STORE_PASSWORD") ?: (project.findProperty("RELEASE_STORE_PASSWORD") as? String))?.takeIf { it.isNotBlank() }
+        keyAlias = (System.getenv("RELEASE_KEY_ALIAS") ?: (project.findProperty("RELEASE_KEY_ALIAS") as? String))?.takeIf { it.isNotBlank() }
+        keyPassword = (System.getenv("RELEASE_KEY_PASSWORD") ?: (project.findProperty("RELEASE_KEY_PASSWORD") as? String))?.takeIf { it.isNotBlank() }
       }
     }
 
@@ -55,9 +55,16 @@ android {
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       
       val releaseConfig = signingConfigs.findByName("release")
-      if (releaseConfig != null && releaseConfig.storeFile != null && releaseConfig.storeFile!!.exists()) {
+      if (releaseConfig != null &&
+          releaseConfig.storeFile != null &&
+          releaseConfig.storeFile!!.exists() &&
+          !releaseConfig.storePassword.isNullOrBlank() &&
+          !releaseConfig.keyAlias.isNullOrBlank() &&
+          !releaseConfig.keyPassword.isNullOrBlank()
+      ) {
           signingConfig = releaseConfig
       } else {
+          signingConfig = null
           logger.warn("WARNING: Release keystore file not found or incomplete. The AAB will be UNSIGNED.")
       }
     }
