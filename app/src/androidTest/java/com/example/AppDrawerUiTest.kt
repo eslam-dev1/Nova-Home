@@ -172,7 +172,13 @@ class AppDrawerUiTest {
 
         composeTestRule.onNodeWithTag("app_drawer_search_input").performTextInput("zzzzzz")
 
-        composeTestRule.onNodeWithTag("empty_state_text").assertIsDisplayed()
+        composeTestRule.waitUntil(timeoutMillis = 5000) {
+            composeTestRule.onAllNodesWithText("No results found")
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+
+        composeTestRule.onNodeWithText("No results found").assertIsDisplayed()
         composeTestRule.onNodeWithText("Gmail").assertDoesNotExist()
     }
 
