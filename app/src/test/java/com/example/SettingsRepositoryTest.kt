@@ -87,4 +87,33 @@ class SettingsRepositoryTest {
         val value = settingsManager.gridSize.first()
         assertThat(value).isIn(listOf("4x4", "5x5"))
     }
+
+    @Test
+    fun shouldDetectPhoneAndArrangeDisplaySettings() = runTest {
+        assertThat(settingsManager.deviceProfile.first()).isEqualTo("Auto")
+
+        val detected = com.example.ui.DeviceProfiles.detectProfile(context)
+        settingsManager.applyDetectedDeviceSettings(detected, "Auto")
+
+        assertThat(settingsManager.deviceProfile.first()).isEqualTo("Auto")
+        assertThat(settingsManager.gridSize.first()).isEqualTo(detected.recommendedGridSize)
+        assertThat(settingsManager.iconShape.first()).isEqualTo(detected.recommendedIconShape)
+        assertThat(settingsManager.showLabels.first()).isTrue()
+
+        val honorProfile = com.example.ui.DeviceProfiles.resolveProfile("Honor X9d Native", context)
+        settingsManager.applyDetectedDeviceSettings(honorProfile, "Honor X9d Native")
+        assertThat(settingsManager.deviceProfile.first()).isEqualTo("Honor X9d Native")
+        assertThat(settingsManager.gridSize.first()).isEqualTo("5x5")
+        assertThat(settingsManager.iconShape.first()).isEqualTo("squircle")
+
+        val compactProfile = com.example.ui.DeviceProfiles.resolveProfile("Compact Phone", context)
+        settingsManager.applyDetectedDeviceSettings(compactProfile, "Compact Phone")
+        assertThat(settingsManager.gridSize.first()).isEqualTo("4x4")
+        assertThat(settingsManager.iconShape.first()).isEqualTo("circle")
+
+        val largeProfile = com.example.ui.DeviceProfiles.resolveProfile("Large / Foldable Display", context)
+        settingsManager.applyDetectedDeviceSettings(largeProfile, "Large / Foldable Display")
+        assertThat(settingsManager.gridSize.first()).isEqualTo("6x6")
+        assertThat(settingsManager.iconShape.first()).isEqualTo("squircle")
+    }
 }

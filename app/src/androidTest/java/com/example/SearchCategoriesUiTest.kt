@@ -45,16 +45,32 @@ class SearchCategoriesUiTest {
             )
         }
 
-        // Verify section headers exist and are displayed
+        // Verify top sections and items before scrolling down
         composeTestRule.onNodeWithTag("section_header_apps").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("section_header_contacts").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("section_header_settings").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("section_header_web").assertIsDisplayed()
-
-        // Verify items in each category are present
         composeTestRule.onNodeWithText("Gmail").assertIsDisplayed()
+
+        composeTestRule.onNodeWithTag("search_results_container")
+            .performScrollToNode(hasTestTag("section_header_contacts"))
+        composeTestRule.onNodeWithTag("section_header_contacts").assertIsDisplayed()
         composeTestRule.onNodeWithText("Sarah Connor").assertIsDisplayed()
+
+        composeTestRule.onNodeWithTag("search_results_container")
+            .performScrollToNode(hasTestTag("section_header_settings"))
+        composeTestRule.onNodeWithTag("section_header_settings").assertIsDisplayed()
         composeTestRule.onNodeWithText("Display Settings").assertIsDisplayed()
+
+        composeTestRule.onNodeWithTag("search_results_container")
+            .performScrollToNode(hasTestTag("section_header_web"))
+
+        composeTestRule.waitUntil(timeoutMillis = 5000) {
+            composeTestRule.onAllNodesWithTag("section_header_web")
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+
+        composeTestRule.onNodeWithTag("section_header_web").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("search_results_container")
+            .performScrollToNode(hasText("Search web for \"Android Launcher\""))
         composeTestRule.onNodeWithText("Search web for \"Android Launcher\"").assertIsDisplayed()
     }
 
@@ -86,6 +102,8 @@ class SearchCategoriesUiTest {
         // Other sections must remain visible
         composeTestRule.onNodeWithTag("section_header_apps").assertIsDisplayed()
         composeTestRule.onNodeWithTag("section_header_settings").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("search_results_container")
+            .performScrollToNode(hasTestTag("section_header_web"))
         composeTestRule.onNodeWithTag("section_header_web").assertIsDisplayed()
     }
 

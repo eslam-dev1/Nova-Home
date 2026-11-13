@@ -140,14 +140,20 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun LauncherScreen(viewModel: LauncherViewModel) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val allApps by viewModel.filteredApps.collectAsState(initial = emptyList())
     val homeItems by viewModel.homeItems.collectAsState(initial = emptyList())
     val recentlyUsedApps by viewModel.recentlyUsedApps.collectAsState(initial = emptyList())
     val suggestedFolders by viewModel.suggestedFolders.collectAsState(initial = emptyList())
     val searchQuery by viewModel.searchQuery.collectAsState(initial = "")
     val gridSize by viewModel.gridSize.collectAsState(initial = "5x5")
+    val iconShape by viewModel.iconShape.collectAsState(initial = "circle")
+    val showLabels by viewModel.showLabels.collectAsState(initial = true)
+    val effectiveProfile by viewModel.effectiveProfile.collectAsState()
     val notificationCounts by viewModel.notificationCounts.collectAsState(initial = emptyMap())
+
+    val gridColumns = remember(gridSize, effectiveProfile) {
+        gridSize.substringBefore("x").toIntOrNull() ?: effectiveProfile.gridColumns
+    }
     
     var isDrawerOpen by remember { mutableStateOf(false) }
     var isEdgePanelOpen by remember { mutableStateOf(false) }
@@ -196,9 +202,17 @@ fun LauncherScreen(viewModel: LauncherViewModel) {
                 viewModel.recordLaunch(item.packageName!!)
                 launchApp(context, item.packageName!!, item.className!!, null) 
             },
-            onLongClick = { /* Handle long press */ },
+            onLongClick = {
+                context.startActivity(Intent(context, SettingsActivity::class.java))
+            },
             onRemove = { viewModel.deleteItem(it) },
-            notificationCounts = notificationCounts
+            notificationCounts = notificationCounts,
+            gridColumns = gridColumns,
+            iconSize = effectiveProfile.iconSize,
+            iconShape = iconShape,
+            showLabels = showLabels,
+            horizontalPadding = effectiveProfile.horizontalPadding,
+            cutoutPadding = effectiveProfile.cutoutSize
         )
 
         // Dock & Bottom Search Pill
@@ -212,12 +226,23 @@ fun LauncherScreen(viewModel: LauncherViewModel) {
             Dock(
                 items = homeItems.filter { it.containerId == LauncherItem.CONTAINER_DOCK },
                 onAppLaunch = { app -> launchApp(context, app.packageName!!, app.className!!, null) },
-                onRemove = { viewModel.deleteItem(it) }
+                onRemove = { viewModel.deleteItem(it) },
+                dockColumns = gridColumns,
+                iconSize = effectiveProfile.iconSize,
+                iconShape = iconShape,
+                showLabels = showLabels,
+                horizontalPadding = effectiveProfile.horizontalPadding
             )
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            SearchPill(onClick = { isDrawerOpen = true })
+            SearchPill(
+                onClick = { isDrawerOpen = true },
+                cornerRadius = effectiveProfile.cornerRadius,
+                onSettingsClick = {
+                    context.startActivity(Intent(context, SettingsActivity::class.java))
+                }
+            )
         }
 
         val webResults by viewModel.webResults.collectAsState()
@@ -287,7 +312,12 @@ fun LauncherScreen(viewModel: LauncherViewModel) {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(web.url))
                     context.startActivity(intent)
                 },
-                onClose = { isDrawerOpen = false }
+                onClose = { isDrawerOpen = false },
+                gridColumns = gridColumns,
+                iconSize = effectiveProfile.iconSize,
+                iconShape = iconShape,
+                showLabels = showLabels,
+                horizontalPadding = effectiveProfile.horizontalPadding
             )
         }
 
@@ -316,7 +346,13 @@ fun HomeScreen(
     onAppLaunch: (LauncherItem) -> Unit,
     onLongClick: (LauncherItem) -> Unit,
     onRemove: (LauncherItem) -> Unit,
-    notificationCounts: Map<String, Int>
+    notificationCounts: Map<String, Int>,
+    gridColumns: Int = 5,
+    iconSize: androidx.compose.ui.unit.Dp = 56.dp,
+    iconShape: String = "circle",
+    showLabels: Boolean = true,
+    horizontalPadding: androidx.compose.ui.unit.Dp = 16.dp,
+    cutoutPadding: androidx.compose.ui.unit.Dp = 16.dp
 ) {
     val pagerState = rememberPagerState(pageCount = { 3 }) 
     val context = LocalContext.current
@@ -335,7 +371,7 @@ fun HomeScreen(
     }
     
     Column(modifier = Modifier.fillMaxSize()) {
-        Spacer(modifier = Modifier.height(64.dp))
+        Spacer(modifier = Modifier.height(48.dp + cutoutPadding))
         DateWidget(weatherState)
         com.example.ui.components.ContextualBanner()
         
@@ -350,6 +386,11 @@ fun HomeScreen(
                 onItemLongClick = onLongClick,
                 onItemRemove = onRemove,
                 notificationCounts = notificationCounts,
+                gridColumns = gridColumns,
+                iconSize = iconSize,
+                iconShape = iconShape,
+                showLabels = showLabels,
+                horizontalPadding = horizontalPadding,
                 modifier = Modifier.graphicsLayer {
                     alpha = androidx.compose.ui.util.lerp(
                         start = 0.5f,
@@ -379,12 +420,16 @@ fun HomeGrid(
     onItemLongClick: (LauncherItem) -> Unit,
     onItemRemove: (LauncherItem) -> Unit,
     notificationCounts: Map<String, Int>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    gridColumns: Int = 5,
+    iconSize: androidx.compose.ui.unit.Dp = 56.dp,
+    iconShape: String = "circle",
+    showLabels: Boolean = true,
+    horizontalPadding: androidx.compose.ui.unit.Dp = 16.dp
 ) {
-    val context = LocalContext.current
     LazyVerticalGrid(
-        columns = GridCells.Fixed(5),
-        contentPadding = PaddingValues(16.dp),
+        columns = GridCells.Fixed(gridColumns.coerceIn(3, 8)),
+        contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = 16.dp),
         modifier = modifier.fillMaxSize(),
         userScrollEnabled = false
     ) {
@@ -396,7 +441,10 @@ fun HomeGrid(
                 notificationCount = notificationCounts[item.packageName] ?: 0,
                 onClick = { onItemClick(item) },
                 onLongClick = { onItemLongClick(item) },
-                onRemove = { onItemRemove(item) }
+                onRemove = { onItemRemove(item) },
+                iconSize = iconSize,
+                iconShape = iconShape,
+                showLabels = showLabels
             )
         }
     }
@@ -404,7 +452,6 @@ fun HomeGrid(
 
 @Composable
 fun DateWidget(weather: String?) {
-    val context = LocalContext.current
     val calendar = Calendar.getInstance()
     val dayName = SimpleDateFormat("EEEE", Locale.getDefault()).format(calendar.time)
     val dateText = SimpleDateFormat("MMMM d", Locale.getDefault()).format(calendar.time)
@@ -439,39 +486,59 @@ fun DateWidget(weather: String?) {
 fun Dock(
     items: List<LauncherItem>,
     onAppLaunch: (LauncherItem) -> Unit,
-    onRemove: (LauncherItem) -> Unit
+    onRemove: (LauncherItem) -> Unit,
+    dockColumns: Int = 5,
+    iconSize: androidx.compose.ui.unit.Dp = 56.dp,
+    iconShape: String = "circle",
+    showLabels: Boolean = false,
+    horizontalPadding: androidx.compose.ui.unit.Dp = 24.dp
 ) {
+    val slotCount = dockColumns.coerceIn(4, 6)
+    val shape = remember(iconShape) {
+        when (iconShape.lowercase()) {
+            "square" -> RoundedCornerShape(16.dp)
+            "squircle" -> RoundedCornerShape(28)
+            else -> CircleShape
+        }
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = horizontalPadding),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        items.forEach { item ->
+        items.take(slotCount).forEach { item ->
             AppIconItem(
                 label = item.label ?: "",
                 packageName = item.packageName ?: "",
                 className = item.className ?: "",
                 onClick = { onAppLaunch(item) },
-                onRemove = { onRemove(item) }
+                onRemove = { onRemove(item) },
+                iconSize = iconSize,
+                iconShape = iconShape,
+                showLabels = showLabels
             )
         }
         
-        // Fill empty spots if less than 5
-        if (items.size < 5) {
-            repeat(5 - items.size) {
-                 Box(modifier = Modifier.size(56.dp).background(Color.White.copy(alpha = 0.1f), CircleShape))
+        // Fill empty spots if less than slotCount
+        if (items.size < slotCount) {
+            repeat(slotCount - items.size) {
+                Box(modifier = Modifier.size(iconSize).background(Color.White.copy(alpha = 0.1f), shape))
             }
         }
     }
 }
 
 @Composable
-fun SearchPill(onClick: () -> Unit) {
+fun SearchPill(
+    onClick: () -> Unit,
+    cornerRadius: androidx.compose.ui.unit.Dp = 26.dp,
+    onSettingsClick: (() -> Unit)? = null
+) {
     Surface(
         onClick = onClick,
-        shape = CircleShape,
+        shape = RoundedCornerShape(cornerRadius),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
         modifier = Modifier
             .fillMaxWidth()
@@ -487,8 +554,21 @@ fun SearchPill(onClick: () -> Unit) {
             Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = stringResource(R.string.drawer_search_hint),
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                modifier = Modifier.weight(1f)
             )
+            if (onSettingsClick != null) {
+                IconButton(
+                    onClick = onSettingsClick,
+                    modifier = Modifier.testTag("home_settings_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = stringResource(R.string.settings_title),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }
@@ -506,8 +586,14 @@ fun AppDrawer(
     onAddSuggestedFolder: (com.example.data.SuggestedFolder) -> Unit,
     onAddToHome: (AppInfo) -> Unit,
     onWebSearch: (com.example.ui.search.WebResult) -> Unit = {},
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    gridColumns: Int = 5,
+    iconSize: androidx.compose.ui.unit.Dp = 56.dp,
+    iconShape: String = "circle",
+    showLabels: Boolean = true,
+    horizontalPadding: androidx.compose.ui.unit.Dp = 16.dp
 ) {
+    val columns = gridColumns.coerceIn(3, 8)
     Surface(
         modifier = Modifier
             .fillMaxSize()
@@ -562,12 +648,12 @@ fun AppDrawer(
                 }
 
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(5),
-                    contentPadding = PaddingValues(16.dp),
+                    columns = GridCells.Fixed(columns),
+                    contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = 16.dp),
                     modifier = Modifier.weight(1f)
                 ) {
                     if (recentlyUsedApps.isNotEmpty()) {
-                        item(span = { GridItemSpan(5) }) {
+                        item(span = { GridItemSpan(columns) }) {
                             Text(
                                 text = stringResource(R.string.recently_used),
                                 style = MaterialTheme.typography.labelLarge,
@@ -575,7 +661,7 @@ fun AppDrawer(
                                 color = MaterialTheme.colorScheme.primary
                             )
                         }
-                        items(recentlyUsedApps) { app ->
+                        items(recentlyUsedApps.take(columns)) { app ->
                             AppIconItem(
                                 label = app.label,
                                 packageName = app.packageName,
@@ -583,10 +669,13 @@ fun AppDrawer(
                                 icon = app.icon,
                                 notificationCount = notificationCounts[app.packageName] ?: 0,
                                 onClick = { onAppLaunch(app) },
-                                onLongClick = { onAddToHome(app) }
+                                onLongClick = { onAddToHome(app) },
+                                iconSize = iconSize,
+                                iconShape = iconShape,
+                                showLabels = showLabels
                             )
                         }
-                        item(span = { GridItemSpan(5) }) {
+                        item(span = { GridItemSpan(columns) }) {
                             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp, horizontal = 16.dp))
                         }
                     }
@@ -599,7 +688,10 @@ fun AppDrawer(
                             icon = app.icon,
                             notificationCount = notificationCounts[app.packageName] ?: 0,
                             onClick = { onAppLaunch(app) },
-                            onLongClick = { onAddToHome(app) }
+                            onLongClick = { onAddToHome(app) },
+                            iconSize = iconSize,
+                            iconShape = iconShape,
+                            showLabels = showLabels
                         )
                     }
                 }
@@ -618,12 +710,23 @@ fun AppIconItem(
     notificationCount: Int = 0,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
-    onRemove: (() -> Unit)? = null
+    onRemove: (() -> Unit)? = null,
+    iconSize: androidx.compose.ui.unit.Dp = 56.dp,
+    iconShape: String = "circle",
+    showLabels: Boolean = true
 ) {
     val context = LocalContext.current
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     var appIcon by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(icon?.toBitmap()?.asImageBitmap()) }
     var showMenu by remember { mutableStateOf(false) }
+
+    val resolvedShape = remember(iconShape) {
+        when (iconShape.lowercase()) {
+            "square" -> RoundedCornerShape(14.dp)
+            "squircle" -> RoundedCornerShape(28)
+            else -> CircleShape
+        }
+    }
 
     LaunchedEffect(packageName, className) {
         if (appIcon == null) {
@@ -650,8 +753,8 @@ fun AppIconItem(
         ) {
             Box(
                 modifier = Modifier
-                    .size(56.dp)
-                    .clip(CircleShape)
+                    .size(iconSize)
+                    .clip(resolvedShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             ) {
                 appIcon?.let { bitmap ->
@@ -682,15 +785,17 @@ fun AppIconItem(
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = label,
-                fontSize = 11.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            if (showLabels) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = label,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
         }
 
         com.example.ui.components.AppItemPopupMenu(

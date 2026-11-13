@@ -31,7 +31,7 @@ class SettingsManager(
     val iconShape: Flow<String> = dataStore.data.map { it[ICON_SHAPE] ?: "circle" }
     val gridSize: Flow<String> = dataStore.data.map { it[GRID_SIZE] ?: "5x5" }
     val edgeBackGesture: Flow<Boolean> = dataStore.data.map { it[EDGE_BACK_GESTURE] ?: true }
-    val deviceProfile: Flow<String> = dataStore.data.map { it[DEVICE_PROFILE] ?: "Pixel 9 Style" }
+    val deviceProfile: Flow<String> = dataStore.data.map { it[DEVICE_PROFILE] ?: "Auto" }
     val iconPack: Flow<String?> = dataStore.data.map { it[ICON_PACK] }
     val hiddenApps: Flow<Set<String>> = dataStore.data.map { it[HIDDEN_APPS] ?: emptySet() }
     val contextualMode: Flow<String> = dataStore.data.map { it[CONTEXTUAL_MODE] ?: "Auto" }
@@ -63,6 +63,18 @@ class SettingsManager(
 
     suspend fun setDeviceProfile(profile: String) {
         dataStore.edit { it[DEVICE_PROFILE] = profile }
+    }
+
+    suspend fun applyDetectedDeviceSettings(
+        profile: com.example.ui.DeviceProfile,
+        profileSelection: String = "Auto"
+    ) {
+        dataStore.edit {
+            it[DEVICE_PROFILE] = profileSelection
+            it[GRID_SIZE] = profile.recommendedGridSize
+            it[ICON_SHAPE] = profile.recommendedIconShape
+            it[SHOW_LABELS] = true
+        }
     }
 
     suspend fun setContextualMode(mode: String) {

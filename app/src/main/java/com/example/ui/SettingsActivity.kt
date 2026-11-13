@@ -64,9 +64,11 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: LauncherViewModel, settingsMan
     val showLabels by settingsManager.showLabels.collectAsState(initial = true)
     val iconShape by settingsManager.iconShape.collectAsState(initial = "circle")
     val gridSize by settingsManager.gridSize.collectAsState(initial = "5x5")
-    val deviceProfile by settingsManager.deviceProfile.collectAsState(initial = "Pixel 9 Style")
+    val deviceProfile by settingsManager.deviceProfile.collectAsState(initial = "Auto")
     val contextualMode by settingsManager.contextualMode.collectAsState(initial = "Auto")
     val iconPack by settingsManager.iconPack.collectAsState(initial = null)
+    val resolvedProfile = remember(deviceProfile) { DeviceProfiles.resolveProfile(deviceProfile, context) }
+    val detectedSummary = remember { DeviceProfiles.getDeviceSummary(context) }
     
     val backupManager = remember { com.example.data.BackupManager(context, settingsManager) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -252,12 +254,61 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: LauncherViewModel, settingsMan
             }
 
             item {
-                Text("Device Profile", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.titleSmall)
-                Row(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    listOf("Auto", "Pixel 9 Style", "Honor X9d Native").forEach { profile ->
+                Text("Device Profile & Auto-Fit Display", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.titleSmall)
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "Detected Phone: $detectedSummary",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "Active Profile: ${resolvedProfile.name} (${resolvedProfile.recommendedGridSize} grid • ${resolvedProfile.iconSize.value.toInt()}dp ${resolvedProfile.recommendedIconShape} icons • ${resolvedProfile.dockItemsCount} dock items)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Button(
+                            onClick = {
+                                viewModel.autoFitDisplayToPhone("Auto")
+                                scope.launch {
+                                    val autoDetected = DeviceProfiles.detectProfile(context)
+                                    snackbarHostState.showSnackbar("Display arranged for ${autoDetected.name} (${autoDetected.recommendedGridSize}, ${autoDetected.recommendedIconShape})")
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Auto-Fit Display to Phone")
+                        }
+                    }
+                }
+                Row(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("Auto", "Compact Phone", "Pixel 9 Style", "Honor X9d Native", "Large / Foldable Display").take(3).forEach { profile ->
                         FilterChip(
                             selected = deviceProfile == profile,
-                            onClick = { scope.launch { settingsManager.setDeviceProfile(profile) } },
+                            onClick = { viewModel.autoFitDisplayToPhone(profile) },
+                            label = { Text(profile) }
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("Honor X9d Native", "Large / Foldable Display").forEach { profile ->
+                        FilterChip(
+                            selected = deviceProfile == profile,
+                            onClick = { viewModel.autoFitDisplayToPhone(profile) },
                             label = { Text(profile) }
                         )
                     }
@@ -279,7 +330,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: LauncherViewModel, settingsMan
             
             item {
                 Text("Icon Shape", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.titleSmall)
-                Row(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Row(modifier = Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("circle", "squircle", "square").forEach { shape ->
                         FilterChip(
                             selected = iconShape == shape,
@@ -292,8 +343,8 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: LauncherViewModel, settingsMan
 
             item {
                 Text("Grid Size", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.titleSmall)
-                Row(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    listOf("4x4", "5x5").forEach { size ->
+                Row(modifier = Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("4x4", "5x5", "6x6").forEach { size ->
                         FilterChip(
                             selected = gridSize == size,
                             onClick = { scope.launch { settingsManager.setGridSize(size) } },

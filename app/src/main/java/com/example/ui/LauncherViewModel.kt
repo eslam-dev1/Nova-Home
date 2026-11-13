@@ -74,12 +74,19 @@ class LauncherViewModel(
     val userSelectedProfile = settingsManager.deviceProfile.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Auto")
     
     val effectiveProfile = userSelectedProfile.map { selected ->
-        if (selected == "Auto") {
-            com.example.ui.DeviceProfiles.detectProfile(repository.context)
-        } else {
-            if (selected == "Honor X9d Native") com.example.ui.DeviceProfiles.HONOR_X9D else com.example.ui.DeviceProfiles.PIXEL_9
+        com.example.ui.DeviceProfiles.resolveProfile(selected, repository.context)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        com.example.ui.DeviceProfiles.detectProfile(repository.context)
+    )
+
+    fun autoFitDisplayToPhone(profileSelection: String = "Auto") {
+        viewModelScope.launch {
+            val targetProfile = com.example.ui.DeviceProfiles.resolveProfile(profileSelection, repository.context)
+            settingsManager.applyDetectedDeviceSettings(targetProfile, profileSelection)
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.example.ui.DeviceProfiles.PIXEL_9)
+    }
 
     fun setShowLabels(show: Boolean) {
         viewModelScope.launch { settingsManager.setShowLabels(show) }
@@ -101,20 +108,38 @@ class LauncherViewModel(
 
     private fun checkFirstRun() {
         viewModelScope.launch {
-            if (settingsManager.isFirstRun.first()) {
-                // Add some default apps to dock/desktop if found
+            val isFirst = settingsManager.isFirstRun.first()
+            val detectedProfile = com.example.ui.DeviceProfiles.detectProfile(repository.context)
+            if (isFirst) {
+                settingsManager.applyDetectedDeviceSettings(detectedProfile, "Auto")
+            }
+
+            val existingItems = try {
+                repository.getAllItemsList()
+            } catch (e: Exception) {
+                emptyList()
+            }
+
+            if (isFirst || existingItems.isEmpty()) {
                 val apps = repository.getInstalledApps()
-                val commonPackages = listOf(
-                    "com.google.android.dialer", "com.android.contacts",
-                    "com.google.android.apps.messaging", "com.android.mms",
-                    "com.android.chrome", "com.google.android.apps.photos",
-                    "com.google.android.gm", "com.google.android.calendar",
-                    "com.google.android.googlequicksearchbox"
-                )
-                
-                var dockIndex = 0
-                apps.filter { it.packageName in commonPackages }.forEach { app ->
-                    if (dockIndex < 5) {
+                if (apps.isNotEmpty()) {
+                    val commonPackages = listOf(
+                        "com.google.android.dialer", "com.android.contacts", "com.hihonor.contacts", "com.huawei.contacts",
+                        "com.google.android.apps.messaging", "com.android.mms", "com.hihonor.mms",
+                        "com.android.chrome", "com.hihonor.browser", "com.huawei.browser",
+                        "com.google.android.apps.photos", "com.hihonor.photos", "com.huawei.photos", "com.android.gallery3d",
+                        "com.google.android.gm", "com.hihonor.email",
+                        "com.google.android.calendar", "com.hihonor.calendar",
+                        "com.android.camera", "com.hihonor.camera", "com.huawei.camera",
+                        "com.android.settings"
+                    )
+
+                    val maxDock = detectedProfile.dockItemsCount.coerceIn(4, 6)
+                    val prioritizedDockApps = (apps.filter { it.packageName in commonPackages } + apps)
+                        .distinctBy { it.packageName }
+                        .take(maxDock)
+
+                    prioritizedDockApps.forEachIndexed { dockIndex, app ->
                         repository.insertItem(
                             LauncherItem(
                                 type = ItemType.APP,
@@ -127,10 +152,29 @@ class LauncherViewModel(
                                 className = app.className
                             )
                         )
-                        dockIndex++
                     }
+
+                    val dockPackages = prioritizedDockApps.map { it.packageName }.toSet()
+                    val desktopApps = apps.filterNot { it.packageName in dockPackages }
+                        .take(detectedProfile.gridColumns)
+
+                    desktopApps.forEachIndexed { index, app ->
+                        repository.insertItem(
+                            LauncherItem(
+                                type = ItemType.APP,
+                                screenIndex = 0,
+                                cellX = index % detectedProfile.gridColumns,
+                                cellY = index / detectedProfile.gridColumns,
+                                containerId = LauncherItem.CONTAINER_DESKTOP,
+                                label = app.label,
+                                packageName = app.packageName,
+                                className = app.className
+                            )
+                        )
+                    }
+
+                    settingsManager.setFirstRun(false)
                 }
-                settingsManager.setFirstRun(false)
             }
         }
     }
