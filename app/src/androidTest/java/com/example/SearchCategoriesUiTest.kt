@@ -45,16 +45,24 @@ class SearchCategoriesUiTest {
             )
         }
 
-        // Verify section headers exist and are displayed
         composeTestRule.onNodeWithTag("section_header_apps").assertIsDisplayed()
         composeTestRule.onNodeWithTag("section_header_contacts").assertIsDisplayed()
         composeTestRule.onNodeWithTag("section_header_settings").assertIsDisplayed()
+
+        val results = composeTestRule.onNodeWithTag("search_results_container")
+        results.performScrollToNode(hasTestTag("section_header_web"))
+        composeTestRule.waitUntil(timeoutMillis = 5000) {
+            composeTestRule.onAllNodesWithTag("section_header_web").fetchSemanticsNodes().isNotEmpty()
+        }
         composeTestRule.onNodeWithTag("section_header_web").assertIsDisplayed()
 
-        // Verify items in each category are present
+        results.performScrollToNode(hasText("Gmail"))
         composeTestRule.onNodeWithText("Gmail").assertIsDisplayed()
+        results.performScrollToNode(hasText("Sarah Connor"))
         composeTestRule.onNodeWithText("Sarah Connor").assertIsDisplayed()
+        results.performScrollToNode(hasText("Display Settings"))
         composeTestRule.onNodeWithText("Display Settings").assertIsDisplayed()
+        results.performScrollToNode(hasText("Search web for \"Android Launcher\""))
         composeTestRule.onNodeWithText("Search web for \"Android Launcher\"").assertIsDisplayed()
     }
 
@@ -79,11 +87,9 @@ class SearchCategoriesUiTest {
             )
         }
 
-        // Contacts section header and items must NOT be displayed
         composeTestRule.onNodeWithTag("section_header_contacts").assertDoesNotExist()
         composeTestRule.onNodeWithText("Sarah Connor").assertDoesNotExist()
 
-        // Other sections must remain visible
         composeTestRule.onNodeWithTag("section_header_apps").assertIsDisplayed()
         composeTestRule.onNodeWithTag("section_header_settings").assertIsDisplayed()
         composeTestRule.onNodeWithTag("section_header_web").assertIsDisplayed()
@@ -107,7 +113,6 @@ class SearchCategoriesUiTest {
             )
         }
 
-        // Verify the passed URL is displayed
         composeTestRule.onNodeWithText(dummyUrl).assertIsDisplayed()
     }
 
@@ -127,13 +132,11 @@ class SearchCategoriesUiTest {
             )
         }
 
-        // Send Down key to focus the first item (Apps header or first app), then Enter
         composeTestRule.onRoot().performKeyInput {
             pressKey(Key.DirectionDown)
             pressKey(Key.Enter)
         }
 
-        // Verify that the app was 'clicked'
         assertTrue("An app should have been launched", launchedApp != null)
     }
 }
